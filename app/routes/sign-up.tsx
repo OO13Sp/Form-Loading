@@ -13,7 +13,7 @@ import {
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
 import { Label } from "../components/ui/label";
-
+import { redirect } from "react-router-dom";
 // Define Zod Schema
 const schema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -44,7 +44,7 @@ export async function action({ request }: { request: Request }) {
   }
 
   // Handle successful form submission (e.g., create user)
-  return { success: true };
+  return redirect("/success");
 }
 
 export default function Component() {
