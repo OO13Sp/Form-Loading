@@ -1,46 +1,140 @@
-// import { Form } from "react-router";
-// import {  } from "@conform-to/react";
+import { Form, useActionData } from "react-router-dom";
+import { useForm } from "@conform-to/react";
+import { parseWithZod } from "@conform-to/zod";
+import { z } from "zod";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+} from "../components/ui/card";
+import { Input } from "../components/ui/input";
+import { Button } from "../components/ui/button";
+import { Label } from "../components/ui/label";
 
-/*
+// Define Zod Schema
+const schema = z.object({
+  name: z.string().min(1, "Name is required"),
+  email: z.string().email("Invalid email address"),
+  password: z
+    .string()
+    .min(8, "Password must be at least 8 characters long")
+    .regex(/[A-Z]/, "Password must include an uppercase letter")
+    .regex(/[a-z]/, "Password must include a lowercase letter")
+    .regex(/[0-9]/, "Password must include a number")
+    .regex(/[@$!%*?&#]/, "Password must include a special character"),
+  confirmPassword: z.string(),
+}).refine((data) => data.password === data.confirmPassword, {
+  path: ["confirmPassword"],
+  message: "Passwords must match",
+});
 
-  Convert this form to use react-router "Form" AND "@conform-to/react"
-  
-  Goals:
-    1. Use the "Form" component and server actions from react-router:https://reactrouter.com/start/framework/actions#server-actions
-    2. Use the "conform" package to handle the form: https://conform.guide/tutorial
-    3. Use zod to validate the form data: https://zod.dev/ both on the client and server
-      - To validate the form with zod, "@conform-to/zod" is the package you need to use: https://conform.guide/api/zod/parseWithZod
-    4. Use zod to do more advanced validation of password and confirm password
-*/
+// Type for schema
+type Schema = z.infer<typeof schema>;
 
-export function action() {
-  return null;
+// Server-Side Action Function
+export async function action({ request }: { request: Request }) {
+  const formData = await request.formData();
+  const submission = parseWithZod(formData, { schema });
+
+  if (submission.status !== "success") {
+    return { errors: submission.errors };
+  }
+
+  // Handle successful form submission (e.g., create user)
+  return { success: true };
 }
 
 export default function Component() {
+  const lastSubmission = useActionData<{ errors?: Record<string, string[]>; success?: boolean }>();
+
+  const [form, fields] = useForm<Schema>({
+    id: "signUpForm",
+    schema,
+    lastSubmission,
+    onValidate: ({ formData }) => parseWithZod(formData, { schema }),
+    shouldValidate: "onBlur",
+    shouldRevalidate: "onInput",
+  });
+
   return (
-    <div>
-      <h1>Sign Up</h1>
-      <p>To get started, please enter your details below.</p>
-      <form method="POST">
-        <div>
-          <label htmlFor="name">Name</label>
-          <input type="name" id="name" />
-        </div>
-        <div>
-          <label htmlFor="email">Email</label>
-          <input type="email" id="email" />
-        </div>
-        <div>
-          <label htmlFor="password">Password</label>
-          <input type="password" id="password" />
-        </div>
-        <div>
-          <label htmlFor="confirmPassword">Confirm Password</label>
-          <input type="password" id="confirmPassword" />
-        </div>
-        <button type="submit">Sign Up</button>
-      </form>
+    <div className="flex items-center justify-center min-h-screen bg-gray-100">
+      <Card className="w-full max-w-md p-6 bg-white shadow-md rounded-md">
+        <CardHeader>
+          <CardTitle>Sign Up</CardTitle>
+          <CardDescription>To get started, please enter your details below.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Form method="post" id={form.id} onSubmit={form.onSubmit} noValidate>
+            <div className="mb-4">
+              <Label htmlFor={fields.name.id}>Name</Label>
+              <Input
+                type="text"
+                id={fields.name.id}
+                name={fields.name.name}
+                defaultValue={fields.name.initialValue}
+              />
+              {fields.name.errors?.map((error, index) => (
+                <p key={index} className="text-sm text-red-500">
+                  {error}
+                </p>
+              ))}
+            </div>
+            <div className="mb-4">
+              <Label htmlFor={fields.email.id}>Email</Label>
+              <Input
+                type="email"
+                id={fields.email.id}
+                name={fields.email.name}
+                defaultValue={fields.email.initialValue}
+              />
+              {fields.email.errors?.map((error, index) => (
+                <p key={index} className="text-sm text-red-500">
+                  {error}
+                </p>
+              ))}
+            </div>
+            <div className="mb-4">
+              <Label htmlFor={fields.password.id}>Password</Label>
+              <Input
+                type="password"
+                id={fields.password.id}
+                name={fields.password.name}
+                defaultValue={fields.password.initialValue}
+              />
+              {fields.password.errors?.map((error, index) => (
+                <p key={index} className="text-sm text-red-500">
+                  {error}
+                </p>
+              ))}
+            </div>
+            <div className="mb-4">
+              <Label htmlFor={fields.confirmPassword.id}>Confirm Password</Label>
+              <Input
+                type="password"
+                id={fields.confirmPassword.id}
+                name={fields.confirmPassword.name}
+                defaultValue={fields.confirmPassword.initialValue}
+              />
+              {fields.confirmPassword.errors?.map((error, index) => (
+                <p key={index} className="text-sm text-red-500">
+                  {error}
+                </p>
+              ))}
+            </div>
+            <Button type="submit" className="w-full">
+              Sign Up
+            </Button>
+          </Form>
+        </CardContent>
+        <CardFooter>
+          <p className="text-sm text-gray-500">
+            Already have an account? <a href="/login" className="text-blue-500 underline">Log in</a>
+          </p>
+        </CardFooter>
+      </Card>
     </div>
   );
 }
