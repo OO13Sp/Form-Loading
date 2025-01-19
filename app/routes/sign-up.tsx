@@ -15,7 +15,7 @@ import { Button } from "../components/ui/button";
 import { Label } from "../components/ui/label";
 import { redirect } from "react-router-dom";
 // Define Zod Schema
-const schema = z.object({
+const Formschema = z.object({
   name: z.string().min(1, "Name is required"),
   email: z.string().email("Invalid email address"),
   password: z
@@ -32,12 +32,12 @@ const schema = z.object({
 });
 
 // Type for schema
-type Schema = z.infer<typeof schema>;
+type Schema = z.infer<typeof Formschema>;
 
 // Server-Side Action Function
 export async function action({ request }: { request: Request }) {
   const formData = await request.formData();
-  const submission = parseWithZod(formData, { schema });
+  const submission = parseWithZod(formData, { schema: Formschema });
 
   if (submission.status !== "success") {
     return { errors: submission.errors };
@@ -50,14 +50,13 @@ export async function action({ request }: { request: Request }) {
 export default function Component() {
   const lastSubmission = useActionData<{ errors?: Record<string, string[]>; success?: boolean }>();
 
-  const [form, fields] = useForm<Schema>({
+  const [form, fields] = useForm({
     id: "signUpForm",
-    schema,
-    lastSubmission,
-    onValidate: ({ formData }) => parseWithZod(formData, { schema }),
+    onValidate: ({ formData }) => parseWithZod(formData, { schema: Formschema }), 
     shouldValidate: "onBlur",
     shouldRevalidate: "onInput",
   });
+  
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
