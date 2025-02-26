@@ -10,3 +10,4 @@ export default [
 
   layout("routes/auth-layout.tsx", [route("sign-up", "routes/sign-up.tsx")]),
 ] satisfies RouteConfig;
+aa
