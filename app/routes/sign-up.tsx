@@ -1,6 +1,6 @@
-import { Form, useActionData, redirect } from "react-router-dom";
-import { useForm, getFormProps } from "@conform-to/react";
-import { parseWithZod } from "@conform-to/zod";
+import { useState } from "react";
+import { useForm, getFormProps, getInputProps } from "@conform-to/react";
+import { parseWithZod, getZodConstraint } from "@conform-to/zod";
 import { z } from "zod";
 import {
   Card,
@@ -13,51 +13,53 @@ import {
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
 import { Label } from "../components/ui/label";
-import type { DataFunctionArgs } from "react-router-dom";
- 
-// Define Zod Schema
-const Formschema = z.object({
-  name: z.string().min(1, "Name is required"),
-  email: z.string().email("Invalid email address"),
-  password: z
-    .string()
-    .min(8, "Password must be at least 8 characters long")
-    .regex(/[A-Z]/, "Password must include an uppercase letter")
-    .regex(/[a-z]/, "Password must include a lowercase letter")
-    .regex(/[0-9]/, "Password must include a number")
-    .regex(/[@$!%*?&#]/, "Password must include a special character"),
-  confirmPassword: z.string(),
-}).refine((data) => data.password === data.confirmPassword, {
-  path: ["confirmPassword"],
-  message: "Passwords must match",
-});
+import { redirect } from "react-router-dom";
 
-// Server-Side Action Function
+// ✅ **Define Validation Schema using Zod**
+const schema = z
+  .object({
+    name: z.string().min(1, "Name is required"),
+    email: z.string().email("Invalid email address"),
+    password: z
+      .string()
+      .min(8, "Password must be at least 8 characters long")
+      .regex(/[A-Z]/, "Password must include an uppercase letter")
+      .regex(/[a-z]/, "Password must include a lowercase letter")
+      .regex(/[0-9]/, "Password must include a number")
+      .regex(/[@$!%*?&#]/, "Password must include a special character"),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    path: ["confirmPassword"],
+    message: "Passwords must match",
+  });
+
+// ✅ **Server-Side Action Function**
 export async function action({ request }: { request: Request }) {
   const formData = await request.formData();
-  console.log("Form Data Received:", Object.fromEntries(formData)); // Debugging
-
-  const submission = parseWithZod(formData, { schema: Formschema });
+  const submission = parseWithZod(formData, { schema });
 
   if (submission.status === "error") {
-    console.log("Validation Errors:", submission.errors); // Debugging
-    return submission.reply(); // Send validation errors back
+    return new Response(JSON.stringify({ errors: submission.errors }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
-  console.log("Redirecting to /success");
   return redirect("/success");
 }
 
-
-
+// ✅ **Main Form Component**
 export default function Component() {
-  const lastSubmission = useActionData<typeof action>();
+  const [formError, setFormError] = useState<string | null>(null);
+  const [formSuccess, setFormSuccess] = useState(false);
 
   const [form, fields] = useForm({
     id: "signUpForm",
-    onValidate: ({ formData }) => parseWithZod(formData, { schema: Formschema }),
-    shouldValidate: "onBlur",
-    shouldRevalidate: "onInput",
+    constraint: getZodConstraint(schema),
+    onValidate: ({ formData }) => parseWithZod(formData, { schema }),
+    shouldValidate: "onBlur", // Validate when leaving the field
+    shouldRevalidate: "onInput", // Validate while typing
   });
 
   return (
@@ -72,114 +74,57 @@ export default function Component() {
             {/* Name Field */}
             <div className="mb-4">
               <Label htmlFor={fields.name.id}>Name</Label>
-              <Input
-                type="text"
-                id={fields.name.id}
-                name={fields.name.name}
-                aria-invalid={!fields.name.valid ? true : undefined}
-                aria-describedby={
-                  !fields.name.valid
-                    ? `${fields.name.errorId} ${fields.name.descriptionId}`
-                    : fields.name.descriptionId
-                }
-                 
-              />
-              <div id={fields.name.descriptionId}>Enter your full name.</div>
-              {!fields.name.valid && (
-                <div id={fields.name.errorId} className="text-sm text-red-500">
-                  {fields.name.errors?.map((error, index) => (
-                    <div key={index}>{error}</div>
-                  ))}
-                </div>
-              )}
+              <p className="text-xs text-gray-500">Enter your full name.</p>
+              <Input {...getInputProps(fields.name, { type: "text" })} />
+              {fields.name.errors?.length ? (
+                <div className="text-sm text-red-500">{fields.name.errors.join(", ")}</div>
+              ) : null}
             </div>
 
             {/* Email Field */}
             <div className="mb-4">
               <Label htmlFor={fields.email.id}>Email</Label>
-              <Input
-                type="email"
-                id={fields.email.id}
-                name={fields.email.name}
-                aria-invalid={!fields.email.valid ? true : undefined}
-                aria-describedby={
-                  !fields.email.valid
-                    ? `${fields.email.errorId} ${fields.email.descriptionId}`
-                    : fields.email.descriptionId
-                }
-                 
-              />
-              <div id={fields.email.descriptionId}>Enter a valid email address.</div>
-              {!fields.email.valid && (
-                <div id={fields.email.errorId} className="text-sm text-red-500">
-                  {fields.email.errors?.map((error, index) => (
-                    <div key={index}>{error}</div>
-                  ))}
-                </div>
-              )}
+              <p className="text-xs text-gray-500">Enter a valid email address.</p>
+              <Input {...getInputProps(fields.email, { type: "email" })} />
+              {fields.email.errors?.length ? (
+                <div className="text-sm text-red-500">{fields.email.errors.join(", ")}</div>
+              ) : null}
             </div>
 
             {/* Password Field */}
             <div className="mb-4">
               <Label htmlFor={fields.password.id}>Password</Label>
-              <Input
-                type="password"
-                id={fields.password.id}
-                name={fields.password.name}
-                aria-invalid={!fields.password.valid ? true : undefined}
-                aria-describedby={
-                  !fields.password.valid
-                    ? `${fields.password.errorId} ${fields.password.descriptionId}`
-                    : fields.password.descriptionId
-                }
-             
-              />
-              <div id={fields.password.descriptionId}>
+              <p className="text-xs text-gray-500">
                 Must be at least 8 characters long and include uppercase, lowercase, a number, and a special character.
-              </div>
-              {!fields.password.valid && (
-                <div id={fields.password.errorId} className="text-sm text-red-500">
-                  {fields.password.errors?.map((error, index) => (
-                    <div key={index}>{error}</div>
-                  ))}
-                </div>
-              )}
+              </p>
+              <Input {...getInputProps(fields.password, { type: "password" })} />
+              {fields.password.errors?.length ? (
+                <div className="text-sm text-red-500">{fields.password.errors.join(", ")}</div>
+              ) : null}
             </div>
 
             {/* Confirm Password Field */}
             <div className="mb-4">
               <Label htmlFor={fields.confirmPassword.id}>Confirm Password</Label>
-              <Input
-                type="password"
-                id={fields.confirmPassword.id}
-                name={fields.confirmPassword.name}
-                aria-invalid={!fields.confirmPassword.valid ? true : undefined}
-                aria-describedby={
-                  !fields.confirmPassword.valid
-                    ? `${fields.confirmPassword.errorId} ${fields.confirmPassword.descriptionId}`
-                    : fields.confirmPassword.descriptionId
-                }
-                defaultValue={fields.confirmPassword.initialValue}
-              />
-              <div id={fields.confirmPassword.descriptionId}>Re-enter your password.</div>
-              {!fields.confirmPassword.valid && (
-                <div id={fields.confirmPassword.errorId} className="text-sm text-red-500">
-                  {fields.confirmPassword.errors?.map((error, index) => (
-                    <div key={index}>{error}</div>
-                  ))}
-                </div>
-              )}
+              <p className="text-xs text-gray-500">Re-enter your password.</p>
+              <Input {...getInputProps(fields.confirmPassword, { type: "password" })} />
+              {fields.confirmPassword.errors?.length ? (
+                <div className="text-sm text-red-500">{fields.confirmPassword.errors.join(", ")}</div>
+              ) : null}
             </div>
 
-            {/* Submit Button with Loading State */}
-            <Button type="submit" className="w-full">
-              Sign Up
-            </Button>
+            {/* Submit Button */}
+            <Button type="submit" className="w-full">Sign Up</Button>
           </form>
+
+          {/* Display Error or Success Message */}
+          {formError && <div className="text-sm text-red-500 mt-2">{formError}</div>}
+          {formSuccess && <div className="text-sm text-green-500 mt-2">Form submitted successfully!</div>}
         </CardContent>
         <CardFooter>
           <p className="text-sm text-gray-500">
-            Already have an account? <a href="/login" className="text-blue-500 underline">Log in</a>
+            Already have an account?{" "}
+            <a href="/login" className="text-blue-500 underline">Log in</a>
           </p>
         </CardFooter>
       </Card>
